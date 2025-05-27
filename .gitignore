@@ -1,0 +1,18 @@
+# Kernel build artifacts
+*.o
+*.ko
+*.mod*
+*.cmd
+*.symvers
+*.order
+*.markers
+
+# Hidden build directories
+.tmp_versions/
+modules.order
+Module.symvers
+
+# IDE and editor files
+*.swp
+*.swo
+.vscode/
