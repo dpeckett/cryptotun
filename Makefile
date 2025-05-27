@@ -1,5 +1,7 @@
 obj-m += cryptotun.o
 
+cryptotun-objs := main.o counter.o crypto.o device.o netlink.o receive.o replay.o transmit.o
+
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
