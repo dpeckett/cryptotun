@@ -15,7 +15,7 @@ enum cryptotun_msg_type {
 struct cryptotun_header {
 	// Message type, e.g., CRYPTOTUN_MSG_TYPE_DATA
 	__be32 type;
-	// ID for the tunnel
+	// ID for the tunnel (this is currently reserved for future use)
 	__be32 tunnel_id;
 	// Message nonce / peers transmit counter
 	__be64 nonce;

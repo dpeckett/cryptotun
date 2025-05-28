@@ -9,14 +9,14 @@
 int cryptotun_rx_thread(void *data)
 {
 	struct net_device *dev = data;
-	struct cryptotun_priv *priv = netdev_priv(dev);
+	struct cryptotun_device *tun_dev = netdev_priv(dev);
 	struct msghdr msg = {};
 	struct kvec iov;
 	struct sk_buff *skb;
 	void *buf;
 	int len;
 
-	if (!priv->udp_sock) {
+	if (!tun_dev->udp_sock) {
 		dev_put(dev);
 		return -ENODEV;
 	}
@@ -34,7 +34,8 @@ int cryptotun_rx_thread(void *data)
 		memset(&msg, 0, sizeof(msg));
 		iov.iov_base = buf;
 		iov.iov_len = BUF_SIZE;
-		len = kernel_recvmsg(priv->udp_sock, &msg, &iov, 1, BUF_SIZE,
+
+		len = kernel_recvmsg(tun_dev->udp_sock, &msg, &iov, 1, BUF_SIZE,
 				     MSG_DONTWAIT);
 		if (len <= 0) {
 			usleep_range(10000, 20000);
@@ -44,89 +45,60 @@ int cryptotun_rx_thread(void *data)
 		pr_debug(LOG_PREFIX "%s: received packet length %d\n", __func__,
 			 len);
 
-		if (priv->rx_aead &&
+		if (tun_dev->rx_aead &&
 		    len > sizeof(struct cryptotun_header) + TAG_LEN) {
-			struct cryptotun_header *hdr = buf;
-			u8 *cipher = buf + sizeof(*hdr);
-			int cipher_len = len - sizeof(*hdr);
-			u8 iv[NONCE_LEN];
 			u8 *plain;
-			struct scatterlist sg_in[2], sg_out[2];
+			int plain_len;
+			struct cryptotun_header *hdr = buf;
 
-			struct aead_request *req;
-
-			plain = kmalloc(cipher_len - TAG_LEN, GFP_KERNEL);
+			plain = kmalloc(len - sizeof(*hdr) - TAG_LEN,
+					GFP_KERNEL);
 			if (!plain)
 				continue;
 
-			generate_iv(be64_to_cpu(hdr->nonce), iv);
-
-			sg_init_table(sg_in, 2);
-			sg_set_buf(&sg_in[0], hdr, sizeof(*hdr));
-			sg_set_buf(&sg_in[1], cipher, cipher_len);
-
-			sg_init_table(sg_out, 2);
-			sg_set_buf(&sg_out[0], hdr, sizeof(*hdr));
-			sg_set_buf(&sg_out[1], plain, cipher_len - TAG_LEN);
-
-			req = aead_request_alloc(priv->rx_aead, GFP_KERNEL);
-			if (!req) {
-				memzero_explicit(plain, cipher_len - TAG_LEN);
-				kfree(plain);
-				continue;
-			}
-
-			aead_request_set_callback(req, 0, NULL, NULL);
-			aead_request_set_crypt(req, sg_in, sg_out, cipher_len,
-					       iv);
-			aead_request_set_ad(req, sizeof(*hdr));
-
-			if (crypto_aead_decrypt(req)) {
+			plain_len = cryptotun_decrypt_packet(
+				tun_dev, buf, len, plain,
+				len - sizeof(*hdr) - TAG_LEN);
+			if (plain_len < 0) {
 				pr_warn(LOG_PREFIX
-					"%s: AEAD decryption failed\n",
-					__func__);
-				aead_request_free(req);
-				memzero_explicit(plain, cipher_len - TAG_LEN);
+					"%s: decryption failed (%d)\n",
+					__func__, plain_len);
+				memzero_explicit(plain,
+						 len - sizeof(*hdr) - TAG_LEN);
 				kfree(plain);
 				continue;
 			}
 
-			aead_request_free(req);
-
-			// Is it a known message type?
 			if (be32_to_cpu(hdr->type) != CRYPTOTUN_MSG_TYPE_DATA) {
 				pr_warn(LOG_PREFIX
 					"%s: unknown message type %u, dropping packet\n",
 					__func__, be32_to_cpu(hdr->type));
-				memzero_explicit(plain, cipher_len - TAG_LEN);
+				memzero_explicit(plain, plain_len);
 				kfree(plain);
 				continue;
 			}
 
-			// Confirm the packet has not been replayed
 			if (!cryptotun_replay_counter_validate(
-				    &priv->replay_counter,
+				    &tun_dev->rx_counter,
 				    be64_to_cpu(hdr->nonce))) {
 				pr_warn(LOG_PREFIX
 					"%s: packet is a replay, dropping\n",
 					__func__);
-				memzero_explicit(plain, cipher_len - TAG_LEN);
+				memzero_explicit(plain, plain_len);
 				kfree(plain);
 				continue;
 			}
 
-			skb = alloc_skb(cipher_len - TAG_LEN + NET_IP_ALIGN,
-					GFP_KERNEL);
+			skb = alloc_skb(plain_len + NET_IP_ALIGN, GFP_KERNEL);
 			if (!skb) {
-				memzero_explicit(plain, cipher_len - TAG_LEN);
+				memzero_explicit(plain, plain_len);
 				kfree(plain);
 				continue;
 			}
 
 			skb_reserve(skb, NET_IP_ALIGN);
-			memcpy(skb_put(skb, cipher_len - TAG_LEN), plain,
-			       cipher_len - TAG_LEN);
-			memzero_explicit(plain, cipher_len - TAG_LEN);
+			memcpy(skb_put(skb, plain_len), plain, plain_len);
+			memzero_explicit(plain, plain_len);
 			kfree(plain);
 
 			u8 ip_version = skb->data[0] >> 4;

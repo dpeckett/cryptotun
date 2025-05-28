@@ -2,12 +2,16 @@
 #ifndef _CRYPTOTUN_CRYPTO_H
 #define _CRYPTOTUN_CRYPTO_H
 
-#include <linux/types.h>
+#include "device.h"
 
 #define KEY_LEN 16
 #define TAG_LEN 16
 #define NONCE_LEN 12
 
-void generate_iv(u64 nonce, u8 *iv);
+int cryptotun_encrypt_packet(struct cryptotun_device *tun_dev, const u8 *in,
+			     int in_len, u8 *out, int out_len);
+
+int cryptotun_decrypt_packet(struct cryptotun_device *tun_dev, const u8 *in,
+			     int in_len, u8 *out, int out_len);
 
 #endif /* _CRYPTOTUN_CRYPTO_H */

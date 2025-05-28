@@ -18,26 +18,25 @@
 
 #define LOG_PREFIX "[cryptotun] "
 
-struct cryptotun_priv {
+struct cryptotun_device {
 	struct socket *udp_sock;
 	struct task_struct *rx_thread;
 	struct task_struct *tx_thread;
 	struct sk_buff_head tx_queue;
 	wait_queue_head_t tx_wq;
-	__be16 remote_port;
 	__be16 local_port;
 	bool use_ipv6;
 	union {
-		__be32 remote_ip4;
-		struct in6_addr remote_ip6;
+		struct sockaddr_in remote_addr;
+		struct sockaddr_in6 remote_addr6;
 	};
 
 	struct crypto_aead *tx_aead;
 	struct crypto_aead *rx_aead;
 	u32 nonce_prefix;
-	u64 nonce_counter;
-	spinlock_t nonce_lock; // Spinlock to protect nonce_counter
-	struct cryptotun_replay_counter replay_counter;
+	u64 tx_counter;
+	spinlock_t tx_counter_lock; // Spinlock to protect tx_counter
+	struct cryptotun_replay_counter rx_counter;
 };
 
 void cryptotun_setup(struct net_device *dev);

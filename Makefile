@@ -3,7 +3,8 @@ KERNEL_SRC ?= /usr/src/linux-6.1.140
 obj-$(CONFIG_CRYPTOTUN) += cryptotun.o
 cryptotun-objs := main.o crypto.o device.o netlink.o receive.o replay.o transmit.o
 
-obj-$(CONFIG_CRYPTOTUN_TEST) += replay_test.o
+obj-$(CONFIG_CRYPTOTUN_TEST) += cryptotun_test.o
+cryptotun_test-objs := crypto_test.o replay_test.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) CONFIG_CRYPTOTUN=m modules
