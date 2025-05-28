@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#ifndef _CRYPTOTUN_REPLAY_COUNTER_H
-#define _CRYPTOTUN_REPLAY_COUNTER_H
+#ifndef _CRYPTOTUN_REPLAY_H
+#define _CRYPTOTUN_REPLAY_H
 
 #include <linux/spinlock.h>
 #include <linux/types.h>
@@ -20,4 +20,4 @@ struct cryptotun_replay_counter {
 bool cryptotun_replay_counter_validate(struct cryptotun_replay_counter *counter,
 				       u64 their_counter);
 
-#endif /* _CRYPTOTUN_REPLAY_COUNTER_H */
+#endif /* _CRYPTOTUN_REPLAY_H */

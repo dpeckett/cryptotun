@@ -93,7 +93,17 @@ int cryptotun_rx_thread(void *data)
 
 			aead_request_free(req);
 
-			// Check if the packet has been replayed
+			// Is it a known message type?
+			if (be32_to_cpu(hdr->type) != CRYPTOTUN_MSG_TYPE_DATA) {
+				pr_warn(LOG_PREFIX
+					"%s: unknown message type %u, dropping packet\n",
+					__func__, be32_to_cpu(hdr->type));
+				memzero_explicit(plain, cipher_len - TAG_LEN);
+				kfree(plain);
+				continue;
+			}
+
+			// Confirm the packet has not been replayed
 			if (!cryptotun_replay_counter_validate(
 				    &priv->replay_counter,
 				    be64_to_cpu(hdr->nonce))) {

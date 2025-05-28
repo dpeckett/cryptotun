@@ -1,0 +1,30 @@
+config CRYPTOTUN
+	tristate "Cryptotun support"
+	depends on INET
+	depends on CRYPTO
+	depends on CRYPTO_AES
+	depends on CRYPTO_GCM
+	default m
+	help
+		Enable support for the Cryptotun kernel module, which provides a minimal,
+		secure tunneling interface over UDP. Cryptotun creates a virtual layer 3
+		point-to-point network interface capable of encrypting and authenticating IP
+		packets using the AES-128-GCM cipher with SHA-256. This module handles packet
+		encapsulation, decapsulation, and basic tunnel management in the kernel, while
+		delegating key exchange and tunnel coordination to userspace tools.
+
+		If unsure, say M to build as a loadable module, or N to disable.
+
+config CRYPTOTUN_TEST
+	tristate "Cryptotun Tests"
+	depends on KUNIT && CRYPTOTUN
+	default KUNIT_ALL_TESTS
+	help
+		Enable KUnit-based unit tests for the Cryptotun kernel module.
+
+		This option allows developers to run a suite of automated tests to verify
+		the internal logic and behavior of the Cryptotun implementation. It is
+		useful during development and debugging, but not necessary for normal
+		use of the module.
+
+		If unsure, say N.

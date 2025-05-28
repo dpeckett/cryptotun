@@ -61,6 +61,9 @@ int cryptotun_tx_thread(void *data)
 			}
 
 			hdr = (struct cryptotun_header *)outbuf;
+			hdr->type = cpu_to_be32(CRYPTOTUN_MSG_TYPE_DATA);
+			hdr->tunnel_id = cpu_to_be32(0);
+
 			spin_lock(&priv->nonce_lock);
 			hdr->nonce =
 				cpu_to_be64(((u64)priv->nonce_prefix << 32) |
