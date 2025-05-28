@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -80,14 +79,6 @@ func deleteLink(name string) error {
 
 	fmt.Printf("Successfully deleted cryptotun device: %s\n", name)
 	return nil
-}
-
-func generateTransitKey() (string, error) {
-	key := make([]byte, 16)
-	if _, err := rand.Read(key); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(key), nil
 }
 
 func main() {
@@ -186,18 +177,6 @@ func main() {
 							return deleteLink(c.String("name"))
 						},
 					},
-				},
-			},
-			{
-				Name:  "keygen",
-				Usage: "Generate a random 128-bit (16-byte) transit key in hex format",
-				Action: func(c *cli.Context) error {
-					key, err := generateTransitKey()
-					if err != nil {
-						return fmt.Errorf("failed to generate key: %w", err)
-					}
-					fmt.Println(key)
-					return nil
 				},
 			},
 		},
