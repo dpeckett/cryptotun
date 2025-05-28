@@ -27,6 +27,7 @@ format:
 
 .PHONY: test
 test:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) C=2 CONFIG_CRYPTOTUN=m modules
 	@if [ ! -L "$(KERNEL_SRC)/drivers/net/cryptotun" ]; then \
 		ln -s "$(PWD)" "$(KERNEL_SRC)/drivers/net/cryptotun"; \
 	fi

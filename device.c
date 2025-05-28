@@ -137,7 +137,6 @@ void cryptotun_setup(struct net_device *dev)
 	struct cryptotun_device *tun_dev = netdev_priv(dev);
 
 	memset(tun_dev, 0, sizeof(*tun_dev));
-	spin_lock_init(&tun_dev->tx_counter_lock);
 	tun_dev->nonce_prefix = (u32)ktime_get_real_seconds();
 
 	dev->netdev_ops = &cryptotun_netdev_ops;

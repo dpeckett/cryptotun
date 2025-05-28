@@ -3,6 +3,7 @@
 #define _CRYPTOTUN_DEVICE_H
 
 #include <crypto/aead.h>
+#include <linux/atomic.h>
 #include <linux/crypto.h>
 #include <linux/in6.h>
 #include <linux/kthread.h>
@@ -34,8 +35,7 @@ struct cryptotun_device {
 	struct crypto_aead *tx_aead;
 	struct crypto_aead *rx_aead;
 	u32 nonce_prefix;
-	u64 tx_counter;
-	spinlock_t tx_counter_lock; // Spinlock to protect tx_counter
+	atomic64_t tx_counter;
 	struct cryptotun_replay_counter rx_counter;
 };
 

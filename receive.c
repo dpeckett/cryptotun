@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+#include "receive.h"
 #include "crypto.h"
 #include "device.h"
 #include "messages.h"

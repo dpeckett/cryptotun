@@ -22,7 +22,6 @@ int cryptotun_crypto_suite_init(struct kunit_suite *suite)
 		return -ENOMEM;
 
 	memset(tun_dev, 0, sizeof(*tun_dev));
-	spin_lock_init(&tun_dev->tx_counter_lock);
 
 	tun_dev->rx_aead = crypto_alloc_aead("gcm(aes)", 0, 0);
 	if (IS_ERR(tun_dev->rx_aead)) {

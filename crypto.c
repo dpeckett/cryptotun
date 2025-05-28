@@ -5,8 +5,10 @@
 
 static void cryptotun_generate_iv(u64 nonce, u8 *iv)
 {
+	__be64 be_nonce = cpu_to_be64(nonce);
+
 	memset(iv, 0, NONCE_LEN);
-	memcpy(iv + 4, &nonce, sizeof(nonce));
+	memcpy(iv + 4, &be_nonce, sizeof(be_nonce));
 }
 
 int cryptotun_encrypt_packet(struct cryptotun_device *tun_dev, const u8 *in,
@@ -26,11 +28,8 @@ int cryptotun_encrypt_packet(struct cryptotun_device *tun_dev, const u8 *in,
 	hdr = (struct cryptotun_header *)out;
 	hdr->type = cpu_to_be32(CRYPTOTUN_MSG_TYPE_DATA);
 	hdr->tunnel_id = cpu_to_be32(0);
-
-	spin_lock(&tun_dev->tx_counter_lock);
 	hdr->nonce = cpu_to_be64(((u64)tun_dev->nonce_prefix << 32) |
-				 tun_dev->tx_counter++);
-	spin_unlock(&tun_dev->tx_counter_lock);
+				 atomic64_fetch_inc(&tun_dev->tx_counter));
 
 	cryptotun_generate_iv(be64_to_cpu(hdr->nonce), iv);
 
@@ -72,6 +71,9 @@ int cryptotun_decrypt_packet(struct cryptotun_device *tun_dev, const u8 *in,
 	int ret;
 
 	if (!tun_dev->rx_aead || in_len < sizeof(*hdr) + TAG_LEN)
+		return -EINVAL;
+
+	if (cipher_len < TAG_LEN)
 		return -EINVAL;
 
 	if (out_len < plain_len)
