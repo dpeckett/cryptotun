@@ -15,7 +15,7 @@ int cryptotun_rx_thread(void *data)
 	struct kvec iov;
 	struct sk_buff *skb;
 	void *buf;
-	int len;
+	int len, plain_len;
 
 	if (!tun_dev->udp_sock) {
 		dev_put(dev);
@@ -37,36 +37,36 @@ int cryptotun_rx_thread(void *data)
 		iov.iov_len = BUF_SIZE;
 
 		len = kernel_recvmsg(tun_dev->udp_sock, &msg, &iov, 1, BUF_SIZE,
-				     MSG_DONTWAIT);
-		if (len <= 0) {
-			usleep_range(10000, 20000);
+				     0);
+		if (len < 0) {
+			pr_warn(LOG_PREFIX "%s: kernel_recvmsg failed: %d\n",
+				__func__, len);
 			continue;
 		}
 
-		pr_debug(LOG_PREFIX "%s: received packet length %d\n", __func__,
-			 len);
-
 		if (tun_dev->rx_aead &&
 		    len > sizeof(struct cryptotun_header) + TAG_LEN) {
-			u8 *plain;
-			int plain_len;
 			struct cryptotun_header *hdr = buf;
+			int payload_len = len - sizeof(*hdr) - TAG_LEN;
 
-			plain = kmalloc(len - sizeof(*hdr) - TAG_LEN,
-					GFP_KERNEL);
-			if (!plain)
+			skb = alloc_skb(payload_len + NET_IP_ALIGN, GFP_KERNEL);
+			if (!skb) {
+				pr_warn(LOG_PREFIX
+					"%s: failed to allocate skb\n",
+					__func__);
 				continue;
+			}
+
+			skb_reserve(skb, NET_IP_ALIGN);
+			u8 *data_ptr = skb_put(skb, payload_len);
 
 			plain_len = cryptotun_decrypt_packet(
-				tun_dev, buf, len, plain,
-				len - sizeof(*hdr) - TAG_LEN);
+				tun_dev, buf, len, data_ptr, payload_len);
 			if (plain_len < 0) {
 				pr_warn(LOG_PREFIX
 					"%s: decryption failed (%d)\n",
 					__func__, plain_len);
-				memzero_explicit(plain,
-						 len - sizeof(*hdr) - TAG_LEN);
-				kfree(plain);
+				kfree_skb(skb);
 				continue;
 			}
 
@@ -74,8 +74,6 @@ int cryptotun_rx_thread(void *data)
 				pr_warn(LOG_PREFIX
 					"%s: unknown message type %u, dropping packet\n",
 					__func__, be32_to_cpu(hdr->type));
-				memzero_explicit(plain, plain_len);
-				kfree(plain);
 				continue;
 			}
 
@@ -85,32 +83,16 @@ int cryptotun_rx_thread(void *data)
 				pr_warn(LOG_PREFIX
 					"%s: packet is a replay, dropping\n",
 					__func__);
-				memzero_explicit(plain, plain_len);
-				kfree(plain);
 				continue;
 			}
 
-			skb = alloc_skb(plain_len + NET_IP_ALIGN, GFP_KERNEL);
-			if (!skb) {
-				memzero_explicit(plain, plain_len);
-				kfree(plain);
-				continue;
-			}
-
-			skb_reserve(skb, NET_IP_ALIGN);
-			memcpy(skb_put(skb, plain_len), plain, plain_len);
-			memzero_explicit(plain, plain_len);
-			kfree(plain);
-
-			u8 ip_version = skb->data[0] >> 4;
+			u8 ip_version = data_ptr[0] >> 4;
 
 			skb->dev = dev;
 			skb->protocol = (ip_version == 6) ? htons(ETH_P_IPV6) :
 							    htons(ETH_P_IP);
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
 
-			pr_debug(LOG_PREFIX "%s: passing packet to netif_rx\n",
-				 __func__);
 			netif_rx(skb);
 		}
 	}

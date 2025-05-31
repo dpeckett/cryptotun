@@ -58,19 +58,9 @@ static int cryptotun_open(struct net_device *dev)
 		return PTR_ERR(tun_dev->rx_thread);
 	}
 
-	init_waitqueue_head(&tun_dev->tx_wq);
+	spin_lock_init(&tun_dev->tx_queue_lock);
 	skb_queue_head_init(&tun_dev->tx_queue);
-
-	dev_hold(dev);
-	tun_dev->tx_thread =
-		kthread_run(cryptotun_tx_thread, dev, "cryptotun_tx_thread");
-	if (IS_ERR(tun_dev->tx_thread)) {
-		pr_err(LOG_PREFIX "Failed to start TX thread\n");
-		kthread_stop(tun_dev->rx_thread);
-		sock_release(tun_dev->udp_sock);
-		tun_dev->udp_sock = NULL;
-		return PTR_ERR(tun_dev->tx_thread);
-	}
+	INIT_DELAYED_WORK(&tun_dev->tx_work, cryptotun_tx_work_handler);
 
 	netif_start_queue(dev);
 	netif_carrier_on(dev);
@@ -91,10 +81,7 @@ static int cryptotun_stop(struct net_device *dev)
 		tun_dev->rx_thread = NULL;
 	}
 
-	if (tun_dev->tx_thread) {
-		kthread_stop(tun_dev->tx_thread);
-		tun_dev->tx_thread = NULL;
-	}
+	cancel_delayed_work_sync(&tun_dev->tx_work);
 	skb_queue_purge(&tun_dev->tx_queue);
 
 	if (tun_dev->udp_sock) {
@@ -120,8 +107,13 @@ static netdev_tx_t cryptotun_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct cryptotun_device *tun_dev = netdev_priv(dev);
 
+	spin_lock(&tun_dev->tx_queue_lock);
 	skb_queue_tail(&tun_dev->tx_queue, skb);
-	wake_up_interruptible(&tun_dev->tx_wq);
+	spin_unlock(&tun_dev->tx_queue_lock);
+
+	if (!delayed_work_pending(&tun_dev->tx_work)) {
+		schedule_delayed_work(&tun_dev->tx_work, msecs_to_jiffies(1));
+	}
 
 	return NETDEV_TX_OK;
 }
@@ -146,7 +138,7 @@ void cryptotun_setup(struct net_device *dev)
 	dev->type = ARPHRD_NONE;
 	dev->flags = IFF_NOARP | IFF_POINTOPOINT;
 	dev->priv_flags |= IFF_NO_QUEUE;
-	dev->features = 0;
+	dev->features = NETIF_F_LLTX; // lockless TX
 	dev->mtu = 1280;
 
 	pr_info(LOG_PREFIX "%s: device setup completed\n", __func__);

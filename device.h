@@ -22,9 +22,9 @@
 struct cryptotun_device {
 	struct socket *udp_sock;
 	struct task_struct *rx_thread;
-	struct task_struct *tx_thread;
+	spinlock_t tx_queue_lock; // Lock for the tx_queue
 	struct sk_buff_head tx_queue;
-	wait_queue_head_t tx_wq;
+	struct delayed_work tx_work;
 	__be16 local_port;
 	bool use_ipv6;
 	union {
