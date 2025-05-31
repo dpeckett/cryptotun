@@ -1,0 +1,14 @@
+version: 2
+ethernets:
+  eth0:
+    match:
+      macaddress: "f6:69:d0:94:6d:0f"
+    set-name: eth0
+    dhcp4: true
+  # QEMU's socket NIC is L3 only so we don't need a unique MAC address
+  eth1:
+    match:
+      macaddress: "e2:65:4d:6e:22:33"
+    set-name: eth1
+    dhcp4: false
+    dhcp6: false

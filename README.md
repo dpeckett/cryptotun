@@ -12,3 +12,7 @@ encryption and authentication provided by AES128-GCM.
 The module is designed to be as minimal and focused strictly on packet handling.
 As much as possible is left to userspace, including key management and
 authentication.
+
+## Supported Kernel Versions
+
+* Linux 6.1 (as used in Debian stable).

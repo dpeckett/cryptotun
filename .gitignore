@@ -1,11 +1,11 @@
 # Kernel build artifacts
 *.o
 *.ko
-*.mod*
 *.cmd
 *.symvers
 *.order
 *.markers
+/*.mod*
 
 # Hidden build directories
 .tmp_versions/

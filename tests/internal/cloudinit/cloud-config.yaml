@@ -1,0 +1,14 @@
+#cloud-config
+users:
+  - name: vmtest
+    gecos: VM Test User
+    passwd: "$y$j9T$VfhiLT7/9zLhd/yjp4jAn/$g./uMahCnE4KV1a3ZDpJYUOuMBd.gdUjIOdVV3uvW97" # vmtest
+    lock_passwd: false
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+ssh_pwauth: true
+package_update: true
+packages:
+  - build-essential
+  - linux-headers-cloud-amd64
+  - iperf3
